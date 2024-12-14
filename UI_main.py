@@ -1,5 +1,4 @@
 import time
-from Scripts.Automatic_test_handler import Automatic_test_handler
 from datetime import datetime, timedelta
 import sys
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
@@ -14,7 +13,7 @@ import threading
 
 from Received_data_handler import Received_data_handler_instance
 from openpyxl.writer.theme import write_theme
-from Automatic_test_handler import Automatic_test_handler
+from Automatic_test_handler import Automatic_test_handler_instance
 
 class Switch(QWidget):
     def __init__(self, parent=None):
@@ -65,7 +64,7 @@ class ControlPanel(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.automatic_test_handler = Automatic_test_handler()
+        self.automatic_test_handler = Automatic_test_handler_instance
         self.setWindowTitle('Control Panel')
         self.setStyleSheet("""
             QMainWindow {
