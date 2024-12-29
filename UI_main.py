@@ -8,12 +8,15 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PyQt5.QtCore import Qt, QPropertyAnimation, QRectF, QSize, pyqtProperty, QThread, pyqtSignal, QPoint, QTimer
 from PyQt5.QtGui import QPalette, QColor, QPainter, QPen, QBrush
 import serial.tools.list_ports
-from Modbus_Protocol import WriteThread, ReadThread
+# from Modbus_Protocol import WriteThread, ReadThread
 import threading
 
-from Received_data_handler import Received_data_handler_instance
+
+from openpyxl.worksheet.print_settings import PRINT_AREA_RE
 from openpyxl.writer.theme import write_theme
-from Automatic_test_handler import Automatic_test_handler_instance
+from On_Click_Buttons import *
+from Automatic_test_handler import Automatic_test_handler
+
 
 class Switch(QWidget):
     def __init__(self, parent=None):
@@ -22,7 +25,6 @@ class Switch(QWidget):
         self._checked = False
         self.animation = QPropertyAnimation(self, b"pos")
         self.animation.setDuration(100)
-
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -43,28 +45,36 @@ class Switch(QWidget):
 
     def mouseReleaseEvent(self, event):
         self._checked = not self._checked
-        # Set the start and end positions based on the current position
-        if self._checked:
-            self.animation.setStartValue(self.pos())
-            self.animation.setEndValue(self.pos() + QPoint(3, 0))  # Move right by 21 pixels
-        else:
-            self.animation.setStartValue(self.pos())
-            self.animation.setEndValue(self.pos() - QPoint(3, 0))  # Move left by 21 pixels
-        self.animation.start()
+        self.animate_knob()  # Call the new method for animation
         self.update()
 
-    def isChecked(self):
-        if (self._checked):
-            return 1
+    def animate_knob(self):
+        # Set the start and end positions based on the current state
+        if self._checked:
+            self.animation.setStartValue(self.pos())
+            self.animation.setEndValue(self.pos() + QPoint(3, 0))  # Move right by 3 pixels
         else:
-            return 0
+            self.animation.setStartValue(self.pos())
+            self.animation.setEndValue(self.pos() - QPoint(3, 0))  # Move left by 3 pixels
+        self.animation.start()
 
-class ControlPanel(QMainWindow):
+
+
+    def isChecked(self):
+        return 1 if self._checked else 0
+
+    def setChecked(self, checked):
+        self._checked = checked
+        self.animate_knob()  # Call the new method for animation
+        self.update()
+
+class UI(QMainWindow):
     update_message_signal = pyqtSignal(str)
 
     def __init__(self):
-        super().__init__()
-        self.automatic_test_handler = Automatic_test_handler_instance
+        super(UI, self).__init__()  # Properly initialize the parent class
+        # self.automatic_test_handler = Automatic_test_handler_instance
+        self.Btns_Normal_Color = "#FFD700"
         self.setWindowTitle('Control Panel')
         self.setStyleSheet("""
             QMainWindow {
@@ -219,10 +229,10 @@ class ControlPanel(QMainWindow):
 
 
         left_controls.addLayout(Lower_panel_layout)
-        self.start_Automatic_test_btn = QPushButton("Start Automatic Test")
-        self.start_Automatic_test_btn.clicked.connect(self.on_start_Automatic_test_click)
+        self.Start_Automatic_Test_Btn = QPushButton("Start Automatic Test")
+        self.Start_Automatic_Test_Btn.clicked.connect(self.on_Start_Automatic_Test_click)
         Lower_panel_layout.addWidget(line)
-        Lower_panel_layout.addWidget(self.start_Automatic_test_btn)
+        Lower_panel_layout.addWidget(self.Start_Automatic_Test_Btn)
         Lower_panel_layout.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
 
         # Right side controls
@@ -241,6 +251,7 @@ class ControlPanel(QMainWindow):
             self.switches[label_text] = switch  # Store the switch reference with its name
             right_controls.addLayout(layout)
 
+
         # LCD Mode radio buttons
         lcd_mode_label = QLabel("LCD Mode")
         self.off_radio = QRadioButton("Off")
@@ -257,6 +268,7 @@ class ControlPanel(QMainWindow):
         speed_label_text = "Speed Reference"
         speed_label = QLabel(speed_label_text)
         speed_spin = QSpinBox()
+        speed_spin.setRange(0, 20)  # Set range for the spin box
         self.numeric_up_downs[speed_label_text] = speed_spin;
         right_controls.addWidget(speed_label)
         right_controls.addWidget(speed_spin)
@@ -329,6 +341,13 @@ class ControlPanel(QMainWindow):
         # Set window size
         self.setMinimumSize(800, 500)
 
+    def Change_Btn_Color(self, Btn, Btn_Color):
+        Btn.setStyleSheet(f"background-color: {Btn_Color};")  # Using an f-string
+    def Change_Btn_Text(self, Btn, Btn_Text):
+        Btn.setText(Btn_Text)
+    def SetTextBoxText(self, TextBox, Text):
+        TextBox.setText(Text)
+
     def Assign_number_to_LCD_mode(self):
         # Check which radio button is selected
         if self.off_radio.isChecked():
@@ -338,6 +357,15 @@ class ControlPanel(QMainWindow):
         elif self.dim_radio.isChecked():
             return 2;
 
+    def Set_LCD_Radio_Buttons(self, command):
+        if command == 0 :
+            self.off_radio.setChecked(True);
+        elif command == 1:
+            self.bright_radio.setChecked(True);
+        elif command == 2 :
+            self.dim_radio.setChecked(True)
+    def Set_Speed_reference_textbox(self, command):
+        self.numeric_up_downs["Speed Reference"].setValue(command)
 
     def get_available_ports(self):
         """Return a list of available serial ports."""
@@ -376,58 +404,16 @@ class ControlPanel(QMainWindow):
         self.populate_ports_combo_box()
         print("Refresh ports is clicked")
     def on_connect_click(self):
-        if(self.connect_btn.text() == "Disconnect"):
-            self.connect_btn.setText("Connect")
-            self.connect_btn.setStyleSheet("background-color: #FFD700; ")
-            self.write_thread.stop()
-            self.read_thread.stop()
-        else: # (self.connect_bt.text() == "Connect")
-            try:
-                # Set up serial connection
-                ser = serial.Serial(self.port_combo.currentText(),
-                                    self.baud_combo.currentText(),
-                                    timeout=1,
-                                    bytesize=serial.EIGHTBITS,
-                                    stopbits=serial.STOPBITS_ONE,
-                                    parity=serial.PARITY_NONE)
-                ser.read_buffer_size = 4096
-            except:
-                print("Failed")
-                self.show_message("Connection failed. Check the Port number.", title="Connection Failed")
-                return
-
-            self.write_thread = WriteThread(ser, self.switches,  self.numeric_up_downs, Assign_number_to_LCD_mode_FUNC = self.Assign_number_to_LCD_mode)
-            self.read_thread = ReadThread(ser, self.switches,  self.numeric_up_downs)
-
-            self.write_thread.start()
-            self.read_thread.start()
-            self.connect_btn.setText("Disconnect")
-            self.connect_btn.setStyleSheet("background-color: Red; color: white;")
-            time.sleep(1)  #If you delete this, UI will be closed.
+        On_Connect_Click(self)
 
     def on_start_log_click(self):
-        current_state = self.start_log_btn.text()
-        if(current_state == "Start Log"):
-            print("Log started.")
+        start_log(self)
 
-
-            self.Save_excel_path = self.open_file_dialog()
-            if (self.Save_excel_path):
-                situation = self.show_data_logger_timer()
-                if situation == 404:
-                    return
-
-                self.Finis_log_time = self.calc_finish_log_time()
-                self.start_log_btn.setText("Stop Log")
-                self.start_log_btn.setStyleSheet("background-color: red; color: white;")
-                Received_data_handler_instance.clear_data()
-            else:
-                return
+    def on_Start_Automatic_Test_click(self):
+        if(self.Start_Automatic_Test_Btn.text() == "Start Automatic Test"):
+            Start_Automatic_Test()
         else:
-            self.save_log_data_as_excel__AND__set_UI(path = self.Save_excel_path)
-    def on_start_Automatic_test_click(self):
-        self.automatic_test_handler.start_Automatic_test_functions()
-
+            Stop_Automatic_Test()
 
 
 
@@ -449,13 +435,14 @@ class ControlPanel(QMainWindow):
 
     def save_log_data_as_excel__AND__set_UI(self, path = "D:\\test_data.xlsx"):
         Received_data_handler_instance.save_to_excel(path)
-        Received_data_handler_instance.clear_data()
+        Received_data_handler_instance.Clear_buffer_of_data()
         self.Datalogger_countdown_flag = False  # This will stop the thread of datalogging countdown(if there would be any)
+        self.read_thread.Flag_Save_data_in_buffer = False
         self.Set_Start_log_button_to_default()
 
     def Set_Start_log_button_to_default(self):
         self.start_log_btn.setText("Start Log")
-        self.start_log_btn.setStyleSheet("background-color: yellow; color: black;")
+        self.start_log_btn.setStyleSheet("background-color: #FFD700; color: black;")
         self.Data_logger_message_box.hide()
 
     def calc_finish_log_time(self):
@@ -518,7 +505,6 @@ class ControlPanel(QMainWindow):
         delta_time = self.finish_time - current_time
         return delta_time
     def run_countdown(self, finish_time):
-
         while self.Datalogger_countdown_flag  :
 
             delta_time = self.calculate_delta_time()
@@ -539,4 +525,14 @@ class ControlPanel(QMainWindow):
     def update_message_box(self, message):
         self.Data_logger_message_box.setPlainText(message)
 
+    def update_textboxes_related_to_received_data(self, received_data):
+        try:
+            for key in self.textboxes:
+                try:
+                    print(str(received_data[key]))
 
+                    self.textboxes[key].setText(str(received_data[key]))
+                except Exception as e:
+                    print(f"update textboxes _inner: {e}")
+        except Exception as e:
+                print(f"update textboxes error: {e}")
