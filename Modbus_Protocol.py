@@ -41,6 +41,10 @@ def write_multiple_registers_command(ser, start_address, values):
     crc = calc_crc(buf)
     buf.append(crc & 0xFF)  # CRC Low byte
     buf.append((crc >> 8) & 0xFF)  # CRC High byte
+    # print("************************************************** :")
+    # print("Write_Reg_Vals :")
+    # print(values)
+    # print("************************************************** :")
     ser.write(bytes(buf))
 
 def read_registers_command(ser, address, count):
@@ -76,7 +80,7 @@ class WriteThread(QThread):
                 if not self.ser.is_open:
                     raise Exception("Serial port is closed")
 
-                Reg_Values = collect_reg_vals_from_user_commands(
+                Reg_Values = self.collect_reg_vals_from_user_commands(
                     self.switches.copy(),  # Create copies to avoid concurrent modification
                     self.numeric_up_downs.copy(),
                     self.Assign_number_to_LCD_mode_FUNC
@@ -84,14 +88,51 @@ class WriteThread(QThread):
 
                 with self.serial_lock:  # Acquire lock before serial operations
                     write_multiple_registers_command(self.ser, 20, Reg_Values)
-                    time.sleep(0.3)
-                    read_registers_command(self.ser, 50, 4)
+                    time.sleep(0.5)
 
                 time.sleep(0.3)
 
         except Exception as e:
             print(f"WriteThread error: {e}")
             self.update_signal.emit(f"WriteThread error: {str(e)}")
+            self._running = False
+
+    def stop(self):
+        self._running = False
+
+    def collect_reg_vals_from_user_commands(self, switches, numeric_up_downs, Assign_number_to_LCD_mode_FUNC):
+        values = []
+        values.append(switches["Power Mode"].isChecked());
+        values.append(switches["Relay"].isChecked());
+        values.append(switches["Pump"].isChecked());
+        values.append(switches["Output Valve"].isChecked());
+        values.append(Assign_number_to_LCD_mode_FUNC());
+        values.append(numeric_up_downs["Speed Reference"].value());
+        return values;
+
+class Send_Read_Reg_Command_Thread(QThread):
+    update_signal = pyqtSignal(str)
+
+    def __init__(self, ser, interval_time):
+        super().__init__()
+        self.ser = ser
+        self._running = True
+        self.serial_lock = Lock()  # Add lock for serial port access
+        self.interval_time = interval_time
+
+    def run(self):
+        try:
+            while self._running:
+                if not self.ser.is_open:
+                    raise Exception("Serial port is closed")
+
+                with self.serial_lock:  # Acquire lock before serial operations
+                    read_registers_command(self.ser, 50, 4)
+                    time.sleep(self.interval_time)
+
+        except Exception as e:
+            print(f"Send_Read_Reg_Command_Thread error: {e}")
+            self.update_signal.emit(f"Send_Read_Reg_Command_Thread error: {str(e)}")
             self._running = False
 
     def stop(self):
@@ -155,11 +196,10 @@ class ReadThread(QThread):
               except Exception as e:
                   print(f"preprocess_received_bytes error: {e}")
             else:
-                print("*******************")
-                print("preprocess_received_bytes returned NONE")
-                print(response)
-                print("*******************")
-
+                # print("*******************")
+                # print("preprocess_received_bytes returned NONE")
+                # print(response)
+                # print("*******************")
                 return None
 
     def process_received_bytes(self, response):
@@ -214,14 +254,6 @@ class ReadThread(QThread):
 
 
 
-def collect_reg_vals_from_user_commands(switches, numeric_up_downs, Assign_number_to_LCD_mode_FUNC):
-    values = []
-    values.append(switches["Power Mode"].isChecked());
-    values.append(switches["Relay"].isChecked());
-    values.append(switches["Pump"].isChecked());
-    values.append(switches["Output Valve"].isChecked());
-    values.append(Assign_number_to_LCD_mode_FUNC());
-    values.append(numeric_up_downs["Speed Reference"].value());
-    return values;
+
 
 

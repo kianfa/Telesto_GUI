@@ -1,7 +1,7 @@
 import serial.tools.list_ports
 import time
 from Automatic_test_handler import Automatic_test_handler
-from Modbus_Protocol import WriteThread, ReadThread
+from Modbus_Protocol import WriteThread, ReadThread,Send_Read_Reg_Command_Thread
 from Received_data_handler import Received_data_handler_instance
 
 def Start_Automatic_Test():
@@ -43,9 +43,18 @@ def On_Connect_Click(Gui):
         Gui.connect_btn.setText("Disconnect")
         Gui.connect_btn.setStyleSheet("background-color: Red; color: white;")
         time.sleep(1)  #If you delete this, UI will be closed.
+def Stop_read_write_threads(Gui):
+    Gui.read_thread.stop()
+    Gui.write_thread.stop()
+    Gui.Send_Read_Reg_Command.stop()
+
 def Start_read_write_threads(Gui):
     Gui.write_thread = WriteThread(Gui.ser, Gui.switches, Gui.numeric_up_downs,
                                    Assign_number_to_LCD_mode_FUNC=Gui.Assign_number_to_LCD_mode)
+
+    read_request_interval = Gui.Read_Intervals_Spin.value()
+    Gui.Send_Read_Reg_Command = Send_Read_Reg_Command_Thread(Gui.ser, read_request_interval)
+
     Gui.read_thread = ReadThread(Gui.ser, Gui.switches, Gui.numeric_up_downs, Gui.textboxes,
                                  Assign_number_to_LCD_mode_FUNC=Gui.Assign_number_to_LCD_mode,
                                  update_textboxes_related_to_received_data_FUNC=Gui.update_textboxes_related_to_received_data)
@@ -54,14 +63,17 @@ def Start_read_write_threads(Gui):
     time.sleep(0.1)
     Gui.read_thread.update_signal.connect(Gui.update_textboxes_related_to_received_data)
     Gui.read_thread.start()
+    time.sleep(0.1)
+    Gui.Send_Read_Reg_Command.start()
+    time.sleep(0.1)
 
 def start_log(Gui):
 
     current_state = Gui.start_log_btn.text()
     if(current_state == "Start Log"):
         print("Log started.")
-        Gui.read_thread.stop()
-        Gui.write_thread.stop()
+
+        Stop_read_write_threads(Gui)
 
         Gui.Save_excel_path = Gui.open_file_dialog()
 

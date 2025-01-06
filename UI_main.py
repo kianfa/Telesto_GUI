@@ -4,7 +4,7 @@ import sys
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QLabel, QComboBox, QPushButton,
                              QSpinBox, QRadioButton, QLineEdit, QFrame, QMessageBox,
-                             QTextEdit, QSizePolicy, QFileDialog, QSpacerItem)
+                             QTextEdit, QSizePolicy, QFileDialog, QSpacerItem, QDoubleSpinBox)
 from PyQt5.QtCore import Qt, QPropertyAnimation, QRectF, QSize, pyqtProperty, QThread, pyqtSignal, QPoint, QTimer
 from PyQt5.QtGui import QPalette, QColor, QPainter, QPen, QBrush
 import serial.tools.list_ports
@@ -105,6 +105,11 @@ class UI(QMainWindow):
                 color: white;
                 border: 1px solid #FFD700;
             }
+            QDoubleSpinBox {
+                background-color: transparent;
+                color: white;
+                border: 1px solid #FFD700;
+            }
             QRadioButton {
                 color: white;
             }
@@ -161,6 +166,43 @@ class UI(QMainWindow):
 
         left_controls.addLayout(conn_layout)
         left_controls.addLayout(button_layout)
+
+        line_layout = QHBoxLayout()
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setFrameShadow(QFrame.Sunken)
+        line.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # Make the line expand horizontally
+        line_layout.addWidget(line)
+        left_controls.addLayout(line_layout)
+
+
+
+        interval_settings_layout = QHBoxLayout()
+        Read_intervals = QLabel("Read Intervals:")
+        self.Read_Intervals_Spin = QDoubleSpinBox()
+        self.Read_Intervals_Spin.setValue(10)
+        self.Read_Intervals_Spin.setRange(0.1, 100)
+        interval_settings_layout.addWidget(Read_intervals)
+        interval_settings_layout.addWidget(self.Read_Intervals_Spin)
+
+
+        Save_Log_Intervals = QLabel("Save Log Intervals:")
+        self.Save_Log_Intervals_Spin = QDoubleSpinBox()
+        self.Save_Log_Intervals_Spin.setValue(50)
+        self.Save_Log_Intervals_Spin.setRange(1,1000)
+        interval_settings_layout.addWidget(Save_Log_Intervals)
+        interval_settings_layout.addWidget(self.Save_Log_Intervals_Spin)
+
+        left_controls.addLayout(interval_settings_layout)
+
+
+        line_layout = QHBoxLayout()
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setFrameShadow(QFrame.Sunken)
+        line.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # Make the line expand horizontally
+        line_layout.addWidget(line)
+        left_controls.addLayout(line_layout)
 
         # Time controls
         time_layout = QHBoxLayout()
@@ -495,7 +537,8 @@ class UI(QMainWindow):
 
         self.Data_logger_message_box.show()
         self.Datalogger_countdown_flag = True
-        self.countdown_thread = threading.Thread(target=self.run_countdown, args=(self.finish_time,))
+        Save_As_Excel_Intervals = self.Save_Log_Intervals_Spin.value()
+        self.countdown_thread = threading.Thread(target=self.run_countdown, args=(self.finish_time,Save_As_Excel_Intervals))
         self.countdown_thread.start()
 
 
@@ -504,15 +547,22 @@ class UI(QMainWindow):
         current_time = datetime.now()
         delta_time = self.finish_time - current_time
         return delta_time
-    def run_countdown(self, finish_time):
+    def run_countdown(self, finish_time, saiving_as_excel_intervals ):
         while self.Datalogger_countdown_flag  :
 
             delta_time = self.calculate_delta_time()
             # If time is up, break the loop
-            if delta_time.total_seconds() <= 0:
+            if (int(delta_time.total_seconds()) % saiving_as_excel_intervals == 0):
+                Received_data_handler_instance.save_to_excel(path = self.Save_excel_path)
+                print(delta_time.total_seconds())
+                print("Autosave Is Done")
+
+            elif delta_time.total_seconds() <= 0:
                 # Save excel
                 self.save_log_data_as_excel__AND__set_UI(path = self.Save_excel_path)
                 break
+
+
 
             days = delta_time.days
             hours, remainder = divmod(delta_time.seconds, 3600)
@@ -521,6 +571,7 @@ class UI(QMainWindow):
             time_format = f"{days} days/ {hours:02}:{minutes:02}:{seconds:02} remained"
             self.update_message_signal.emit(time_format)
             time.sleep(1)  # Wait for 1 second before updating again
+
 
     def update_message_box(self, message):
         self.Data_logger_message_box.setPlainText(message)

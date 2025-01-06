@@ -17,8 +17,6 @@ class CommandsStruct:
     LCDMode: pd.Series
     SpeedReference: pd.Series
 
-
-
 class Automatic_test_handler():
     __shared_instance = None
 
@@ -29,21 +27,13 @@ class Automatic_test_handler():
             Automatic_test_handler()
         return Automatic_test_handler.__shared_instance
 
-
     def __init__(self):
         self.Gui = None
         if Automatic_test_handler.__shared_instance is not None:
             raise Exception("This class is a singleton class!")
         else:
             Automatic_test_handler.__shared_instance = self
-
         self.MessageBoxes = MessageBoxes_instance
-
-        # print(self.Main_window)
-        # print("Automatic_test_handler")
-        # print(id(self.Main_window))
-        # print("Automatic_test_handler")
-
 
     def SetGui(self, gui):
         self.Gui = gui
@@ -123,11 +113,6 @@ class Automatic_test_handler():
             print(f"Error checking Excel process: {e}")
             return False
 
-
-
-
-
-
 class Automatic_test_thread(QThread):
     """Thread for writing registers periodically."""
     update_signal = pyqtSignal(str)
@@ -154,7 +139,6 @@ class Automatic_test_thread(QThread):
         self.update_output_valve_signal.connect(self.Gui.switches["Output Valve"].setChecked)
         self.update_lcd_mode_signal.connect(self.Gui.Set_LCD_Radio_Buttons)
         self.update_speed_reference_signal.connect(self.Gui.Set_Speed_reference_textbox)
-
         self.update_Btn_Color_signal.connect(self.Gui.Change_Btn_Color)
         self.update_Btn_Text_signal.connect(self.Gui.Change_Btn_Text)
 
@@ -164,7 +148,7 @@ class Automatic_test_thread(QThread):
             self.update_Btn_Text_signal.emit(self.Gui.Start_Automatic_Test_Btn, "Stop Automatic Test")
             while self._running:
                 for r in range(len(self.commands.Times)):
-                    if r>0:
+                    if r > 0:
                         time.sleep(self.commands.Times[r] - self.commands.Times[r-1] )  # Delay between commands
                     elif(r == 0):
                         time.sleep(self.commands.Times[0])  # Delay between commands
@@ -192,21 +176,3 @@ class Automatic_test_thread(QThread):
         self.update_Btn_Text_signal.emit(self.Gui.Start_Automatic_Test_Btn, "Start Automatic Test")
 
 
-# class Automatic_test_handlerInitializer:
-#     _instance = None
-#
-#     @classmethod
-#     def initialize(cls):
-#         print("INITIALIZED")
-#         if cls._instance is None:
-#             cls._instance = Automatic_test_handler()
-#         return cls._instance
-#
-#     @classmethod
-#     def get_instance(cls):
-#         print("Got_instance")
-#         if cls._instance is None:
-#             return cls.initialize()
-#         return cls._instance
-#
-# Automatic_test_handler_instance = Automatic_test_handlerInitializer.initialize()

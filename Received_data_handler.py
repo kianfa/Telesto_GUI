@@ -63,7 +63,7 @@ class Received_data_handler():
         """Save the received data to an Excel file at the specified path."""
         # Create a DataFrame from the buffer
         df = pd.DataFrame(self.buffer_of_received_data_and_commands)
-        if( not path.endswith(".xlsx")):
+        if(not path.endswith(".xlsx")):
             path = path + '.xlsx'
 
         try:
@@ -75,7 +75,7 @@ class Received_data_handler():
 
 
 
-Received_data_handler_instance = Received_data_handler()
+# Received_data_handler_instance = Received_data_handler()
 
 
 class Received_data_handlerInitializer:
