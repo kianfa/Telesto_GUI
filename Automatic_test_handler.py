@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import QPushButton
 import pandas as pd
 from MessageBoxes_UI import MessageBoxes_instance
 from dataclasses import dataclass
-
+from Error_Logger import save_error_to_file
 @dataclass
 class CommandsStruct:
     Times: pd.Series
@@ -82,6 +82,7 @@ class Automatic_test_handler():
             return self.excel_of_commands_path
         except Exception as e:
             print(f"Error copying file: {e}")
+            save_error_to_file("Error copying file:" + str(e))
             return e
 
     def Open_automatic_test_excel(self):
@@ -111,6 +112,7 @@ class Automatic_test_handler():
             return 'EXCEL.EXE' in output
         except Exception as e:
             print(f"Error checking Excel process: {e}")
+            save_error_to_file("Error checking Excel process:" + str(e))
             return False
 
 class Automatic_test_thread(QThread):
@@ -168,6 +170,7 @@ class Automatic_test_thread(QThread):
         except Exception as e:
             self._running = False
             print(f"Automatic Test Thread error: {e}")
+            save_error_to_file("Automatic Test Thread error:" + str(e))
 
     def Stop(self):
         """Stop the thread safely."""

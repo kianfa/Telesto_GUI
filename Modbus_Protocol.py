@@ -4,6 +4,8 @@ from PyQt5.QtCore import QThread, pyqtSignal
 SLAVE_ADDRESS = 0x02;
 from Received_data_handler import Received_data_handler_instance
 from threading import Lock
+from Error_Logger import save_error_to_file
+
 def calc_crc(data):
     """Calculate CRC-16 for Modbus."""
     crc = 0xFFFF
@@ -85,20 +87,31 @@ class WriteThread(QThread):
                     self.numeric_up_downs.copy(),
                     self.Assign_number_to_LCD_mode_FUNC
                 )
+                print("****** write reg values ******")
+                print(Reg_Values)
+                print("************")
 
                 with self.serial_lock:  # Acquire lock before serial operations
                     write_multiple_registers_command(self.ser, 20, Reg_Values)
-                    time.sleep(0.5)
-
-                time.sleep(0.3)
+                    time.sleep(0.45)
 
         except Exception as e:
             print(f"WriteThread error: {e}")
             self.update_signal.emit(f"WriteThread error: {str(e)}")
+            save_error_to_file("WriteThread error:" + str(e))
             self._running = False
+            if str(e)!= "Serial port is closed":
+                self.restart_thread()
 
     def stop(self):
         self._running = False
+    def restart_thread(self):
+        self.stop()  # Stop the current thread
+        self._running = True
+        print("Restarting WriteThread...")
+        self.run();
+
+
 
     def collect_reg_vals_from_user_commands(self, switches, numeric_up_downs, Assign_number_to_LCD_mode_FUNC):
         values = []
@@ -133,6 +146,7 @@ class Send_Read_Reg_Command_Thread(QThread):
         except Exception as e:
             print(f"Send_Read_Reg_Command_Thread error: {e}")
             self.update_signal.emit(f"Send_Read_Reg_Command_Thread error: {str(e)}")
+            save_error_to_file("Send_Read_Reg_Command_Thread error:" + str(e))
             self._running = False
 
     def stop(self):
@@ -178,13 +192,18 @@ class ReadThread(QThread):
                                     )
                         except Exception as e:
                             print(f"ReadThread error1: {e}")
+                            save_error_to_file("ReadThread error1:" + str(e))
+
 
                 time.sleep(0.05)
 
         except Exception as e:
             print(f"ReadThread error2: {e}")
             self.update_signal.emit(f"ReadThread error: {str(e)}")
+            save_error_to_file("ReadThread error2:" + str(e))
             self._running = False
+            if str(e)!= "Serial port is closed":
+                self.restart_thread()
 
     def preprocess_received_bytes(self, response):
         for i in range(len(response) - 3):
@@ -195,6 +214,7 @@ class ReadThread(QThread):
                    return seperated_response
               except Exception as e:
                   print(f"preprocess_received_bytes error: {e}")
+                  save_error_to_file("preprocess_received_bytes error:" + str(e))
             else:
                 # print("*******************")
                 # print("preprocess_received_bytes returned NONE")
@@ -229,6 +249,7 @@ class ReadThread(QThread):
                 print("Wrong CRC")
         except Exception as e:
             print(f"process_received_bytes error: {e}")
+            save_error_to_file("process_received_bytes error" + str(e))
 
     def Translate_Received_response(self, response, textboxes, commands, Flag_Save_data_in_buffer):
         try:
@@ -248,9 +269,16 @@ class ReadThread(QThread):
             return values
         except Exception as e:
             print(f"Translate_Received_response error: {e}")
+            save_error_to_file("Translate_Received_response error: " + str(e))
 
     def stop(self):
         self._running = False
+
+    def restart_thread(self):
+        self._running = True
+
+        print("Restarting ReadThread...")
+        self.run();
 
 
 

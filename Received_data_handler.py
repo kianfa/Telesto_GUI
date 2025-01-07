@@ -72,6 +72,7 @@ class Received_data_handler():
             print(f"Data saved to {path}")
         except Exception as e:
             print(f"Saving to Excel failed: {e}")
+            save_error_to_file("Saving to Excel failed:" + str(e))
 
 
 
