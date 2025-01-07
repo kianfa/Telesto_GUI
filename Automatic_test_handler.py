@@ -71,6 +71,14 @@ class Automatic_test_handler():
             LCDMode=self.Commands_df['Lcd Mode (0:off,1:Dim,2:Bright)'],
             SpeedReference = self.Commands_df['Speed Reference']
         )
+        print( self.commands.Times)
+        print(self.commands.PowerMode)
+        print(self.commands.Relay)
+        print(self.commands.Pump)
+        print(self.commands.Output_valve)
+        print(self.commands.LCDMode)
+        print(self.commands.SpeedReference);
+
         print(self.commands)
     def create_a_copy_of_excel(self):
         try:
@@ -157,7 +165,7 @@ class Automatic_test_thread(QThread):
 
                     if self._running:
                         # Emit signals instead of direct access
-                        self.update_power_mode_signal.emit(self.commands.Relay[r])
+                        self.update_power_mode_signal.emit(self.commands.PowerMode[r])
                         self.update_relay_signal.emit(self.commands.Relay[r])
                         self.update_pump_signal.emit(self.commands.Pump[r])
                         self.update_output_valve_signal.emit(self.commands.Output_valve[r])
