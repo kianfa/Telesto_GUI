@@ -136,8 +136,7 @@ class Send_Read_Reg_Command_Thread(QThread):
     def run(self):
         try:
             while self._running:
-                if not self.ser.is_open:
-                    raise Exception("Serial port is closed")
+
 
                 with self.serial_lock:  # Acquire lock before serial operations
                     read_registers_command(self.ser, 50, 4)
@@ -148,10 +147,15 @@ class Send_Read_Reg_Command_Thread(QThread):
             self.update_signal.emit(f"Send_Read_Reg_Command_Thread error: {str(e)}")
             save_error_to_file("Send_Read_Reg_Command_Thread error:" + str(e))
             self._running = False
+            self.restart_thread()
 
     def stop(self):
         self._running = False
+    def restart_thread(self):
+        self._running = True
 
+        print("Restarting Send_Read_Reg_Command thread...")
+        self.run();
 
 class ReadThread(QThread):
     update_signal = pyqtSignal(dict)
